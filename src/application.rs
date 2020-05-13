@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use std::fs::File;
 use std::sync::Arc;
 use std::thread;
-use std::time::Instant;
+
+use slog::Logger;
 
 use super::color::de;
 use super::color::BakedColorManager;
@@ -82,32 +83,36 @@ impl Application {
         pic.save_with_format(tgt, Png).map_err(error_trans)
     }
 
-    pub fn alloc_tasks(this: Arc<Self> ,tasks: Vec<RenderTask>) {
+    pub fn alloc_tasks(this: Arc<Self> ,mut tasks: Vec<RenderTask>, logger: &Logger) {
         let thread_num = this.options.thread_num;
         let divide = std::cmp::max((tasks.len() + thread_num - 1) / thread_num, 1);
         let mut i = 0;
         let mut ths = Vec::new();
-        let time = Instant::now();
+        let mut c = 0;
         while i < tasks.len() {
             let j = std::cmp::min(i + divide, tasks.len());
             let slice = Vec::from(&tasks[i..j]);
             let that = this.clone();
-            let th = thread::spawn(move|| {
-                println!("start [{}] @ {:?}", slice.len(), thread::current());
+            let logger = logger.new(slog::o!("workthread" => c));
+            let th = thread::Builder::new()
+                .name(format!("work-{}", c))
+                .spawn(move|| {
                 for task in &slice {
                     if let Err(e) = that.render_one(task.src.as_path(), task.tgt.as_path(), &task.tile_id) {
-                        eprintln!("task {:?} @{} error: {}", task.tile_id, task.src.display(), e);
+                        slog::warn!(logger, "tile{:?} error: {}", task.tile_id, e);
+                    } else {
+                        slog::info!(logger, "tile{:?} finished", task.tile_id);
                     }
                 }
-            });
+            }).unwrap();
             ths.push(th);
             i = j;
+            c += 1;
         }
+        tasks.clear();
         for th in ths {
             th.join().unwrap();
         }
-        let time = Instant::now() - time;
-        println!("> used: {}ms", time.as_millis());
     }
 }
 
