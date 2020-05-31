@@ -1,10 +1,11 @@
 use std::path::Path;
 use std::path::PathBuf;
+use std::io;
+use std::fs;
 use std::fs::File;
 use std::sync::Arc;
 use std::thread;
 
-use slog::Logger;
 
 use super::color::de;
 use super::color::BakedColorManager;
@@ -13,10 +14,10 @@ use super::render::RenderOptions;
 use super::render::Tile;
 
 pub struct AppOptions {
-    pub render_options: RenderOptions,  
-    pub input_folder: PathBuf,
-    pub output_folder: PathBuf,
-    pub thread_num: usize,
+    render_options: RenderOptions,  
+    input_folder: PathBuf,
+    output_folder: PathBuf,
+    thread_num: usize,
 }
 
 impl Default for AppOptions {
@@ -30,6 +31,32 @@ impl Default for AppOptions {
     }
 }
 
+impl AppOptions {
+
+    pub fn render_option_mut(&mut self) -> &mut RenderOptions {
+        &mut self.render_options
+    }
+
+    pub fn set_thread_num(&mut self, thread_num: usize) {
+        self.thread_num = thread_num;
+    }
+
+    pub fn set_input_folder(&mut self, path: &str) {
+        self.input_folder = PathBuf::from(path);
+    }
+
+    pub fn set_output_folder(&mut self, path: &str) {
+        self.output_folder = PathBuf::from(path);
+    }
+
+    pub fn ensure_output_folder(&self) -> io::Result<()> {
+        if !self.output_folder.is_dir() {
+            std::fs::create_dir_all(self.output_folder.as_path())
+        } else {
+            Ok(())
+        }
+    }
+}
 
 pub struct Application {
     options: AppOptions,
@@ -83,7 +110,7 @@ impl Application {
         pic.save_with_format(tgt, Png).map_err(error_trans)
     }
 
-    pub fn alloc_tasks(this: Arc<Self> ,mut tasks: Vec<RenderTask>, logger: &Logger) {
+    pub fn alloc_tasks(this: Arc<Self> ,mut tasks: Vec<RenderTask>) {
         let thread_num = this.options.thread_num;
         let divide = std::cmp::max((tasks.len() + thread_num - 1) / thread_num, 1);
         let mut i = 0;
@@ -93,15 +120,14 @@ impl Application {
             let j = std::cmp::min(i + divide, tasks.len());
             let slice = Vec::from(&tasks[i..j]);
             let that = this.clone();
-            let logger = logger.new(slog::o!("workthread" => c));
             let th = thread::Builder::new()
                 .name(format!("work-{}", c))
                 .spawn(move|| {
                 for task in &slice {
                     if let Err(e) = that.render_one(task.src.as_path(), task.tgt.as_path(), &task.tile_id) {
-                        slog::warn!(logger, "tile{:?} error: {}", task.tile_id, e);
+                        log::warn!("tile{:?} error: {}", task.tile_id, e);
                     } else {
-                        slog::info!(logger, "tile{:?} finished", task.tile_id);
+                        log::info!("tile{:?} finished", task.tile_id);
                     }
                 }
             }).unwrap();
@@ -116,14 +142,25 @@ impl Application {
     }
 }
 
-
-
-fn build_colormanager() -> BakedColorManager {
+pub fn curdir() -> PathBuf {
     use std::env::current_exe;
+
+    if let Ok(dir) = current_exe() {
+        if let Some(path) = dir.parent() {
+            PathBuf::from(path)
+        } else {
+            PathBuf::default()
+        }
+    } else {
+        PathBuf::default()
+    }
+}
+
+pub fn build_colormanager() -> BakedColorManager {
+    
     use std::io::BufReader;
     
-    let dir = current_exe().unwrap();
-    let mut dir = PathBuf::from(dir.parent().unwrap());
+    let mut dir = curdir();
     dir.push("resource");
     let biome_color = {
         let r4 = File::open(dir.join("biome.json")).unwrap();

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxelmap-Cache Renderer</title>
+</head>
+<body>
+
+    <div>
+        <div>
+            <label>light</label>
+            <input id="light" type="number" min="0" max="15" value="15" />
+        </div>
+        <div>
+            <label>Files</label>
+            <input id="files" type="file" name="tile" multiple />
+        </div>
+        <button id="submit">Submit</button>
+    </div>
+
+    <div id="saving">
+        <button id="save">Save</button>
+    </div>
+
+    <div id="display">
+        
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.3.0/jszip.min.js" integrity="sha256-J0jjrR5bYbE+saHyVcuvt2EIg5JAHN10VWyTHtVJV2E=" crossorigin="anonymous"></script>
+    <script src="./index.js"></script>
+    
+</body>
+</html>

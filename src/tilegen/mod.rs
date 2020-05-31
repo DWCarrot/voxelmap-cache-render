@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread::Builder;
 
-use slog::Logger;
 use image::imageops::FilterType;
 
 use tile::LoadableImage;
@@ -14,16 +13,16 @@ use tile::TileId;
 use tile::TileQTreeIterator;
 use pathgen::PathGenerator;
 
-pub fn merge_branch(root: TileId, cache: &mut HashMap<TileId, LoadableImage>, path_gen: &dyn PathGenerator, filter: FilterType, logger: &Logger) {
+pub fn merge_branch(root: TileId, cache: &mut HashMap<TileId, LoadableImage>, path_gen: &dyn PathGenerator, filter: FilterType) {
     for tile_id in TileQTreeIterator::new(root, 0) {
         if tile_id.is_origin() {
             if let Some(img) = cache.get_mut(&tile_id) {
                 img.ensure();
                 let p = path_gen.generate(tile_id.x, tile_id.z, tile_id.scale);
                 match img.save(&p) {
-                    Err(e) => slog::warn!(logger, "tile {} @{} fail: {}", tile_id, p.display(), e),
+                    Err(e) => log::warn!("tile {} @{} fail: {}", tile_id, p.display(), e),
                     Ok(b) => if b {
-                        slog::info!(logger, "tile {} generated", tile_id);
+                        log::info!("tile {} generated", tile_id);
                     }
                 }
             }
@@ -35,9 +34,9 @@ pub fn merge_branch(root: TileId, cache: &mut HashMap<TileId, LoadableImage>, pa
             let img = LoadableImage::merge(&tl, &tr, &bl, &br, filter);
             let p = path_gen.generate(tile_id.x, tile_id.z, tile_id.scale);
             match img.save(&p) {
-                Err(e) => slog::warn!(logger, "tile {} @{} fail: {}", tile_id, p.display(), e),
+                Err(e) => log::warn!("tile {} @{} fail: {}", tile_id, p.display(), e),
                 Ok(b) => if b {
-                    slog::info!(logger, "tile {} generated", tile_id);
+                    log::info!("tile {} generated", tile_id);
                 }
             }
             cache.insert(tile_id, img);  
@@ -131,7 +130,7 @@ impl TileGenerator {
         }
     }
 
-    pub fn generate_tile(&self, mut cache: HashMap<TileId, LoadableImage>, logger: &Logger) {
+    pub fn generate_tile(&self, mut cache: HashMap<TileId, LoadableImage>) {
         let mut parts = vec![
             (-1, -1, HashMap::new()), 
             (0, -1, HashMap::new()), 
@@ -145,11 +144,10 @@ impl TileGenerator {
         for (x, z, mut cache_part) in parts.into_iter() {
             let path_gen = self.path_gen.clone();
             let root = TileId::new(path_gen.get_max_scale(), x, z);
-            let logger = logger.new(slog::o!("side" => format!("({},{})", x, z)));
             let filter = self.options.filter.clone();
             let tasks = move || {
                 let path_gen = path_gen.as_ref();
-                merge_branch(root, &mut cache_part, path_gen, filter, &logger)
+                merge_branch(root, &mut cache_part, path_gen, filter)
             };
             if self.options.multi_thread_mode {
                 let th = Builder::new().name(format!("work-({},{})", x, z)).spawn(tasks).unwrap();

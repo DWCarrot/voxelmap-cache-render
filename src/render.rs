@@ -258,8 +258,8 @@ impl<'a> Iterator for SplitIter<'a> {
 
 
 pub struct RenderOptions {
-    pub gamma: f32,
-    pub env_light: u8,
+    gamma: f32,
+    env_light: u8,
 }
 
 impl Default for RenderOptions {
@@ -270,8 +270,21 @@ impl Default for RenderOptions {
             env_light: 15,
         }
     }
-
 }
+
+impl RenderOptions {
+
+    pub fn set_gamma(&mut self, gamma: f32) {
+        if gamma > 0.0 {
+            self.gamma = gamma;
+        }
+    }
+
+    pub fn set_env_light(&mut self, light: u8) {
+        self.env_light = std::cmp::min(light, 15);
+    }
+}
+
 
 pub fn gamma_correction(c: &mut Rgba<u8>, gamma: f32) {
     let r = c[0] as f32 / 255.0;
