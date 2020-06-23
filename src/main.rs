@@ -3,8 +3,11 @@ mod color;
 mod render;
 mod application;
 mod tilegen;
+
+#[cfg(features = "service")]
 mod service;
 
+use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -13,7 +16,8 @@ use clap::App;
 use clap::Arg;
 use clap::SubCommand;
 
-
+const NAME: &'static str = env!("CARGO_PKG_NAME");
+const DESCRIPTION: &'static str = env!("CARGO_PKG_DESCRIPTION");
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &'static str = env!("CARGO_PKG_AUTHORS");
 
@@ -22,13 +26,17 @@ const MAX_THREAD: usize = 16;
 
 fn main() {
 
+    if let Err(_e) = env::var("RUST_LOG") {
+        env::set_var("RUST_LOG", "info");
+    }
     env_logger::init();
 
     let app = 
-        App::new("voxelmap cache offline renderer")
+        App::new(NAME)
+        .about(DESCRIPTION)
         .version(VERSION)
-        .author(AUTHORS)
-        .subcommand(
+        .author(AUTHORS);
+    let app = app.subcommand(
             SubCommand::with_name("render")
             .arg(
                 Arg::with_name("input_dir")
@@ -65,8 +73,8 @@ fn main() {
                 .help("multi-thread: thread number")
                 .takes_value(true)
             )
-        )
-        .subcommand(
+        );
+    let app = app.subcommand(
             SubCommand::with_name("tile")
             .arg(
                 Arg::with_name("input_dir")
@@ -104,25 +112,29 @@ fn main() {
                 .help("if use multi-thread; fixed 4 thread")
                 .takes_value(false)
             )
-        )
-        .subcommand(
+        );
+    #[cfg(features = "service")]
+    let app = app.subcommand(
             SubCommand::with_name("renderserver")
             .arg(
                 Arg::with_name("host")
                 .long("host")
                 .help("server bind host; default is \"0.0.0.0:8080\"")
+                .takes_value(true)
                 .required(false)
             )
             .arg(
                 Arg::with_name("max_tasks")
                 .long("max_tasks")
                 .help("max tasks number for server to run at the same time; default is 128")
+                .takes_value(true)
                 .required(false)
             )
             .arg(
                 Arg::with_name("workers")
                 .long("workers")
                 .help("worker thread num for server")
+                .takes_value(true)
                 .required(false)
             )
             .arg(
@@ -130,7 +142,13 @@ fn main() {
                 .long("compress")
                 .help("to enable compress for server")
                 .required(false)
-                .takes_value(false)
+            )
+            .arg(
+                Arg::with_name("tls")
+                .long("tls")
+                .help("use tls with specific cert.pem and key.pem; format: --tls path-to-cert.pem,path-to-key.pem")
+                .takes_value(true)
+                .required(false)
             )
         );
 
@@ -201,6 +219,7 @@ fn main() {
             log::info!("> used {}ms", time.as_millis());
         }
 
+        #[cfg(features = "service")]
         "renderserver" => {
             let options = {
                 let mut options = service::RenderServerOptions::default();
@@ -220,6 +239,12 @@ fn main() {
                 options.set_compress(
                     args.is_present("compress")
                 );
+                if let Some(tls) = args.value_of("tls") {
+                    let a: Vec<_> = tls.splitn(2, ',').collect();
+                    if a.len() == 2 {
+                        options.set_tls(PathBuf::from(a[0]), PathBuf::from(a[1]));
+                    }
+                }
                 options
             };
             service::RenderService::new(options).start();

@@ -1,10 +1,17 @@
 [package]
-name = "voxelmapcache"
-version = "0.1.2"
+name = "voxelmap_cache_renderer"
+description = "offline voxelmap-cache renderer with some tools"
+version = "0.1.7"
 authors = ["RDCarrot <yyt226univ2017@yahoo.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+
+default = []
+
+service = ["bytes", "actix-multipart", "actix-rt", "actix-files", "actix-web", "rustls", "futures", "num_cpus"]
+
 
 [dependencies]
 zip = { version = "^0.5", features = ["deflate-miniz"] }
@@ -14,16 +21,15 @@ image = "^0.23"
 log = "^0.4"
 env_logger = "^0.7"
 clap = "^2.33"
-bytes = "^0.5"
-actix-multipart = "^0.2"
-actix-rt = "^1.1"
-actix-files = "^0.2"
-actix-web = "^2.0"
-futures = "^0.3"
-num_cpus = "^1.13"
+bytes = { optional = true, version = "^0.5" }
+actix-multipart = { optional = true, version = "^0.2" }
+actix-rt = { optional = true, version = "^1.1" }
+actix-files = { optional = true, version = "^0.2" }
+actix-web = { optional = true, version = "^2.0", features = ["rustls"] }
+rustls = { optional = true, version = "^0.16" }
+futures = { optional = true, version = "^0.3" }
+num_cpus = { optional = true, version = "^1.13" }
 
-[profile.dev]
-opt-level = 0
 
 [profile.release]
 opt-level = 3

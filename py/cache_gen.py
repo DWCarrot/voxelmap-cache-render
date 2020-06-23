@@ -163,8 +163,6 @@ class AssetsLoader:
         return None
 
 
-
-
 class AppliedModel:
 
     def __init__(self, json_data):
@@ -689,6 +687,7 @@ class FullRenderer:
 
 import argparse
 import logging
+from os import path
 
 if __name__ == "__main__":
 
@@ -776,6 +775,10 @@ if __name__ == "__main__":
     (cmap, wmap) = renderer.color_extraction()
     cv2.imwrite('colormap.png', cmap)
     cv2.imwrite('weightmap.png', wmap)
+    c_grass = loader.get_texture('minecraft', 'colormap/grass')
+    cv2.imwrite('grass.png', c_grass)
+    c_foliage = loader.get_texture('minecraft', 'colormap/foliage')
+    cv2.imwrite('foliage.png', c_foliage)
     pass
 
 '''

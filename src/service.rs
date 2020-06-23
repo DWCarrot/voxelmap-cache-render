@@ -1,5 +1,8 @@
 use std::path::PathBuf;
+use std::io;
 use std::io::Cursor;
+use std::io::BufReader;
+use std::fs::File;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::AtomicUsize;
@@ -15,7 +18,7 @@ use actix_web::App;
 use actix_web::HttpResponse;
 use actix_web::Error as ActixError;
 use actix_web::http::header;
-use actix_files::NamedFile;
+use actix_files::Files;
 use actix_multipart::Multipart;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -23,6 +26,9 @@ use serde::Deserialize;
 use serde::de::Deserializer;
 use serde::de::Visitor;
 use serde::de::MapAccess;
+use rustls::ServerConfig;
+use rustls::NoClientAuth;
+use rustls::internal::pemfile;
 
 use super::render::RenderOptions;
 use super::render;
@@ -40,6 +46,7 @@ pub struct RenderServerOptions {
     workers: usize,
     max_tasks: usize,
     compress: bool,
+    tls: Option<(PathBuf, PathBuf)>,
 }
 
 impl Default for RenderServerOptions {
@@ -50,6 +57,7 @@ impl Default for RenderServerOptions {
             workers: num_cpus::get(),
             max_tasks: 128,
             compress: false,
+            tls: None
         }
     }
 }
@@ -70,6 +78,10 @@ impl RenderServerOptions {
 
     pub fn set_compress(&mut self, compress: bool) {
         self.compress = compress;
+    }
+
+    pub fn set_tls(&mut self, cert_file: PathBuf, key_file: PathBuf) {
+        self.tls = Some((cert_file, key_file));
     }
 }
 
@@ -147,47 +159,61 @@ impl<'de> Deserialize<'de> for RenderOptions {
 }
 
 
-async fn run_service(service: RenderService) -> std::io::Result<()> {
+async fn run_service(service: RenderService) -> io::Result<()> {
 
     const ACTIX_LOG_FORMAT: &'static str = "%a \"%r\" %s \"%{User-Agent}i\" %D";
 
     let options = service.options.clone();
     let service = web::Data::new(service);
+
     let mut webfileroot = application::curdir();
     webfileroot.push("web");
-    let webfileroot = web::Data::new(webfileroot);
+
     let payloadcfg = web::PayloadConfig::new(MAX_TILE_SIZE * 3 / 2);
+
+    let tls_cfg = {
+        if let Some((cert_file, key_file)) = options.tls {
+            let mut config = ServerConfig::new(NoClientAuth::new());
+            let cert_file = &mut BufReader::new(File::open(cert_file.as_path())?);
+            let key_file = &mut BufReader::new(File::open(key_file.as_path())?);
+            let cert_chain = pemfile::certs(cert_file).map_err(|_e| io::Error::from(io::ErrorKind::InvalidData))?;
+            let mut keys = pemfile::rsa_private_keys(key_file).map_err(|_e| io::Error::from(io::ErrorKind::InvalidData))?;
+            config.set_single_cert(cert_chain, keys.remove(0)).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+            Some(config)
+        } else {
+            None
+        }
+    };
+
     if options.compress {
-        HttpServer::new(move || {
+        let server = HttpServer::new(move || {
             App::new()
                 .wrap(middleware::Logger::new(ACTIX_LOG_FORMAT))
                 .wrap(middleware::Compress::default())
                 .app_data(payloadcfg.clone())
-                .app_data(webfileroot.clone())
                 .app_data(service.clone())
                 .service(
                     web::resource("/render")
                         .route(web::post().to(render))
                 )
                 .service(
-                    web::resource("/")
-                        .route(web::get().to(index_html))
-                )
-                .service(
-                    web::resource("/index.html")
-                        .route(web::get().to(index_html))
-                )
-                .service(
-                    web::resource("/index.js")
-                        .route(web::get().to(index_js))
+                    Files::new("/static", webfileroot.as_path()).index_file("index.html")
                 )
         })
-        .bind(options.host)?
-        .workers(options.workers)
-        .run()
-        .await
+        .workers(options.workers);
+        if let Some(tls_cfg) = tls_cfg {
+            server
+                .bind_rustls(options.host, tls_cfg)?
+                .run()
+                .await
+        } else {
+            server
+                .bind(options.host)?
+                .run()
+                .await
+        }
     } else {
-        HttpServer::new(move || {
+        let server = HttpServer::new(move || {
             App::new()
                 .wrap(middleware::Logger::new(ACTIX_LOG_FORMAT))
                 .app_data(payloadcfg.clone())
@@ -198,33 +224,22 @@ async fn run_service(service: RenderService) -> std::io::Result<()> {
                         .route(web::post().to(render))
                 )
                 .service(
-                    web::resource("/")
-                        .route(web::get().to(index_html))
-                )
-                .service(
-                    web::resource("/index.html")
-                        .route(web::get().to(index_html))
-                )
-                .service(
-                    web::resource("/index.js")
-                        .route(web::get().to(index_js))
+                    Files::new("/static", webfileroot.as_path()).index_file("index.html")
                 )
         })
-        .bind(options.host)?
-        .workers(options.workers)
-        .run()
-        .await
+        .workers(options.workers);
+        if let Some(tls_cfg) = tls_cfg {
+            server
+                .bind_rustls(options.host, tls_cfg)?
+                .run()
+                .await
+        } else {
+            server
+                .bind(options.host)?
+                .run()
+                .await
+        }
     }
-}
-
-
-async fn index_html(root: web::Data<PathBuf>) -> actix_web::Result<NamedFile> {
-    Ok(NamedFile::open(root.join("index.html"))?)
-}
-
-
-async fn index_js(root: web::Data<PathBuf>) -> actix_web::Result<NamedFile> {
-    Ok(NamedFile::open(root.join("index.js"))?)
 }
 
 

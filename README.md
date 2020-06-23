@@ -1,13 +1,13 @@
 # voxelmap-cache-render
 Offline renderer for Minecraft voxelmap cache, with python (generate colormap) and Rust (fast render)
 
-
+[中文使用方法简介](https://bbs.craft.moe/d/1921-voxelmapmod)
 
 ## rust renderer
 ### file struct
 ```bash
 ./
-   [executable-binary-file]
+   voxelmapcache.exe
    resource/
        biome.json
        foliage.png
@@ -18,7 +18,7 @@ Offline renderer for Minecraft voxelmap cache, with python (generate colormap) a
 ```
 these files can be found in `py/`
 ### usage
-1. generate picture from `.minecraft[/versions/<version>]/mods/.mods/mamiyaotaru/voxelmap/cache/<server>/<world>/overworld/`
+1. generate picture from `.minecraft[/versions/<version>]/.mods/mamiyaotaru/voxelmap/cache/<server>/<world>/overworld/`
 
 ```bash
 USAGE:
@@ -52,4 +52,21 @@ OPTIONS:
 ## python colormap generator
 
 1. biomes_gen
+
+   ensure `biomes.cpp` in the same folder and run `biomes_gen`.
+   output `biomes.json`
+
 2. cache_gen
+
+```
+USAGE: cache_gen.py [-l LOG] [-w LINEWIDTH] assets [assets ...]
+    -l LOG          log file name; default is 'STDOUT'
+    -w LINEWIDTH    number of baked-model each row; default is 32
+    assets          resource packs, can be multiple.
+                    notice that: 1. <version>.jar is one kind of resource pack; 2. specific.zip are required as the last resource packs to fix some model.
+    
+EXAMPLE: python3 cache_gen.py -l run.log Minecraft\.minecraft\versions\1.15.2\1.15.2.jar specific.zip
+```
+​	output `index.json`,`baked.png` ,`heightmap.png`,`colormap.png`, `weightmap.png`, `grass.png`,`foliage.png`
+
+3. pick up `index.json`,`colormap.png`, `weightmap.png`, `grass.png`,`foliage.png`, `biome.json` into `resource` folder.

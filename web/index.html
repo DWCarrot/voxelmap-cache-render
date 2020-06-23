@@ -7,13 +7,30 @@
 </head>
 <body>
 
+    <!--
+        TODO: 
+        1.[fix-bug] main.rs renderserver功能 takevalue
+        2.[append] service.rs SSL相关
+        3.[append] service.rs static-file
+    -->
+
+    <div>
+        <p>使用说明</p>
+        <ol>
+            <li>`light`选择环境光照，默认为15</li>
+            <li>`cache-files`选择需要渲染的cache文件；文件一般位于`.minecraft[/versions/&lt;version&gt;]/.mods/mamiyaotaru/voxelmap/cache/&lt;server&gt;/&lt;world&gt;/overworld/`；可多选</li>
+            <li>点击`Submit`上传，并等待图片回传</li>
+            <li>当所有图片回传结束，点击`Save`，生成打包的图片下载`Download`;点击`Download`下载</li>
+        </ol>
+    </div>
+
     <div>
         <div>
             <label>light</label>
             <input id="light" type="number" min="0" max="15" value="15" />
         </div>
         <div>
-            <label>Files</label>
+            <label>cache-files</label>
             <input id="files" type="file" name="tile" multiple />
         </div>
         <button id="submit">Submit</button>
