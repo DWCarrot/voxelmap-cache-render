@@ -213,21 +213,26 @@ class ModelProvider:
         self.loader = loader
         self.cache = dict()
 
-    def set_namespace(self, namespace):
-        self.namespace = namespace
+    # def set_namespace(self, namespace):
+    #     self.namespace = namespace
 
     def get(self, name, nocache=False):
+        namespace = self.namespace
+        i = name.find(':')
+        if i >= 0:
+            namespace = name[:i]
+            name = name[i+1:]
         if nocache:
-            mdl = self.loader.get_model(self.namespace, name)
+            mdl = self.loader.get_model(namespace, name)
             if mdl is not None:
                 mdl = Model(mdl)
         else:
-            mdl = self.cache.get(self.namespace + ':' + name)
+            mdl = self.cache.get(namespace + ':' + name)
             if mdl is None:
-                mdl = self.loader.get_model(self.namespace, name)
+                mdl = self.loader.get_model(namespace, name)
                 if mdl is not None:
                     mdl = Model(mdl)
-                    self.cache[self.namespace + ':' + name] = mdl
+                    self.cache[namespace + ':' + name] = mdl
         return mdl
 
 
@@ -238,20 +243,25 @@ class TextureProvider:
         self.loader = loader
         self.cache = dict()
 
-    def set_namespace(self, namespace):
-        self.namespace = namespace
+    # def set_namespace(self, namespace):
+    #     self.namespace = namespace
 
     def get(self, name, nocache=False):
+        namespace = self.namespace
+        i = name.find(':')
+        if i >= 0:
+            namespace = name[:i]
+            name = name[i+1:]
         if nocache:
-            tex = self.loader.get_texture(self.namespace, name)
+            tex = self.loader.get_texture(namespace, name)
             if tex is not None:
                 tex = Model(tex)
         else:
-            tex = self.cache.get(self.namespace + ':' + name)
+            tex = self.cache.get(namespace + ':' + name)
             if tex is None:
-                tex = self.loader.get_texture(self.namespace, name)
+                tex = self.loader.get_texture(namespace, name)
                 if tex is not None:
-                    self.cache[self.namespace + ':' + name] = tex
+                    self.cache[namespace + ':' + name] = tex
         return tex
 
 
@@ -689,8 +699,8 @@ import argparse
 import logging
 from os import path
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('assets', type=str, help='minecraft resourcepack (or version.jar)', nargs='+')
@@ -736,13 +746,16 @@ if __name__ == "__main__":
         i = name.find(':')
         namespace = name[:i]
         name = name[i+1:]
-        mdlpvd.set_namespace(namespace)
+        # mdlpvd.set_namespace(namespace)
         for (bspair, index) in zip(bs.pairs, bs.ids):
             applied_model = bspair[1]
             mdlname = namespace + ':' + applied_model.model
             mdl = model_cache.get(mdlname)
             if mdl is None:
                 mdl = mdlpvd.get(applied_model.model, True)
+                if mdl is None:
+                    logging.warning("model is None: {}".format(applied_model.model))
+                    continue
                 mdl.link(mdlpvd)
                 logging.info('load model  {}'.format(mdlname))
                 model_cache[mdlname] = mdl
@@ -758,7 +771,7 @@ if __name__ == "__main__":
         i = name.find(':')
         namespace = name[:i]
         name = name[i+1:]
-        tex_pvd.set_namespace(namespace)
+        # tex_pvd.set_namespace(namespace)
         for (bspair, index) in zip(bs.pairs, bs.ids):
             applied_model = bspair[1]
             ts = applied_model.get_faces('up')
@@ -776,9 +789,9 @@ if __name__ == "__main__":
     cv2.imwrite('colormap.png', cmap)
     cv2.imwrite('weightmap.png', wmap)
     c_grass = loader.get_texture('minecraft', 'colormap/grass')
-    cv2.imwrite('grass.png', c_grass)
+    cv2.imwrite('grass.png', c_grass[:,:,0:3])
     c_foliage = loader.get_texture('minecraft', 'colormap/foliage')
-    cv2.imwrite('foliage.png', c_foliage)
+    cv2.imwrite('foliage.png', c_foliage[:,:,0:3])
     pass
 
 '''

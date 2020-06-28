@@ -11,3 +11,6 @@ Cargo.lock
 
 # VSCode
 /.vscode/
+
+# Specific Log
+/py/*.log
