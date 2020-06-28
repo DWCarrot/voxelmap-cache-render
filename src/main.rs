@@ -4,7 +4,7 @@ mod render;
 mod application;
 mod tilegen;
 
-#[cfg(features = "service")]
+#[cfg(feature = "service")]
 mod service;
 
 use std::env;
@@ -113,7 +113,7 @@ fn main() {
                 .takes_value(false)
             )
         );
-    #[cfg(features = "service")]
+    #[cfg(feature = "service")]
     let app = app.subcommand(
             SubCommand::with_name("renderserver")
             .arg(
@@ -219,7 +219,7 @@ fn main() {
             log::info!("> used {}ms", time.as_millis());
         }
 
-        #[cfg(features = "service")]
+        #[cfg(feature = "service")]
         "renderserver" => {
             let options = {
                 let mut options = service::RenderServerOptions::default();
