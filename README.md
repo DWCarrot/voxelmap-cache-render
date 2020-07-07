@@ -39,11 +39,11 @@ USAGE
 
     -i, --input_dir <input_dir>      input folder
     -o, --output_dir <output_dir>    output folder
-    --path_mode <path_mode>      generated path mode, can be "layer:<start>,<step>,<stop>"
+    --path_mode <path_mode>      generated path mode, can be "layer+", "layer+:<minZoom>", "layer+:<minZoom>,<maxZoom>", "layer-", "layer-:<minZoom>", "layer-:<maxZoom>,<minZoom>"
         example: layer mode, the original scale is marked as 5 and the max-level scale is marked as 0
-            => "layer:5,-1,0"
-        example: layer mode, the original scale is marked as 0 and the max-level scale is marked as 3
-            => "layer:0,1,3"
+            => "layer-:5,0" or "layer-:5"
+        example: layer mode, the original scale is marked as 0, automatically scan all files
+            => "layer+:0" or "layer+"
 OPTIONS:
     --filter <filter>                filter used in scale, can be "nearest", "triangle", "gaussian", "catmullrom", "lanczos3"; default is "nearest"
     --use_multi_thread               whether to use multi-thread; if set, use fixed 4 threads

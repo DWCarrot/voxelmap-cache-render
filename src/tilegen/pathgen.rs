@@ -4,8 +4,6 @@ use std::path::PathBuf;
 pub trait PathGenerator {
 
     fn get_max_scale(&self) -> i32;
-
-    fn set_max_scale(&mut self, s: i32);
     
     fn generate(&self, x: i32, z: i32, scale: i32 /* scale level increase from 0 */) -> PathBuf;
 
@@ -35,10 +33,6 @@ impl PathGenerator for Layer {
 
     fn get_max_scale(&self) -> i32 {
         self.max_scale
-    }
-
-    fn set_max_scale(&mut self, s: i32) {
-        self.max_scale = s;
     }
 
     fn generate(&self, x: i32, z: i32, scale: i32) -> PathBuf {

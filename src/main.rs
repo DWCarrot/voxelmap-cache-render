@@ -11,6 +11,7 @@ use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
+use std::str::FromStr;
 
 use clap::App;
 use clap::Arg;
@@ -101,8 +102,7 @@ fn main() {
             .arg(
                 Arg::with_name("path_mode")
                 .long("path_mode")
-                .help("generated path mode, can be \"layer:<start>,<step>,<stop>\"")
-                .long_help("generated path mode, can be \"layer:<start>,<step>,<stop>\"\nexample: layer mode, the original scale is 5, finished at 0 => \"layer:5,-1,0\"")
+                .help("generated path mode, can be \"layer+\", \"layer+:<minZoom>\", \"layer+:<minZoom>,<maxZoom>\", \"layer-\", \"layer-:<minZoom>\", \"layer-:<maxZoom>,<minZoom>\"")
                 .takes_value(true)
                 .required(true)
             )
@@ -201,7 +201,8 @@ fn main() {
             let options = {
                 let input_folder = PathBuf::from(args.value_of("input_dir").unwrap());
                 let output_folder = PathBuf::from(args.value_of("output_dir").unwrap());
-                let mut options = tilegen::TileGeneratorOptions::new(input_folder, output_folder);
+                let path_mode = tilegen::PathMode::from_str(args.value_of("path_mode").unwrap()).unwrap();
+                let mut options = tilegen::TileGeneratorOptions::new(input_folder, output_folder, path_mode);
                 if let Some(value) = args.value_of("filter") {
                     options.set_filter(value);
                 }
@@ -210,8 +211,7 @@ fn main() {
                 }
                 options
             };
-            let path_gen = options.build_path_generator(args.value_of("path_mode").unwrap()).unwrap();
-            let app = tilegen::TileGenerator::new(options, path_gen);
+            let app = tilegen::TileGenerator::new(options);
             let time = Instant::now();
             let list = app.list_files();
             app.generate_tile(list);
