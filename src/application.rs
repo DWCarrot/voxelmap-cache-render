@@ -11,7 +11,7 @@ use super::color::de;
 use super::color::BakedColorManager;
 use super::render;
 use super::render::RenderOptions;
-use super::render::Tile;
+use super::render::tile::Tile;
 
 pub struct AppOptions {
     render_options: RenderOptions,  

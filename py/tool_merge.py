@@ -7,7 +7,7 @@ import argparse
 def list_files(path):
     pattern = re.compile(r'(-?\d+),(-?\d+).png')
     res = list()
-    rg = list()  #[xmin xmax ymin ymax]
+    rg = list()  #[xmin ymin xmax ymax]
     for (dirpath, dirnames, filenames) in os.walk(path):
         for filename in filenames:
             m = pattern.match(filename)
@@ -59,10 +59,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('input_dir', type=str)
     parser.add_argument('-o', '--output_file', type=str)
+    parser.add_argument('-r', '--range', type=str) # xmin,ymin;xmax,ymax
 
     args = parser.parse_args()
 
     (res, rg) = list_files(args.input_dir)
+    if not (args.range == 'max'):
+        sp = args.range.split(' ')
+        p1 = sp[0:2]
+        xmin = int(p1[0])
+        ymin = int(p1[1])
+        p2 = sp[2:4]
+        xmax = int(p2[0]) + 1
+        ymax = int(p2[1]) + 1
+        rg = (xmin, ymin, xmax, ymax)
+
     h = merge(res, rg)
     cv2.imwrite(args.output_file, h)
 
