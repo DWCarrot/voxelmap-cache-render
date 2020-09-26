@@ -112,6 +112,11 @@ fn main() {
                 .help("if use multi-thread; fixed 4 thread")
                 .takes_value(false)
             )
+            .arg(
+                Arg::with_name("check_exist")
+                .long("check_exist")
+                .help("check if the same picture exist and then skip rewrite it")
+            )
         );
     #[cfg(feature = "service")]
     let app = app.subcommand(
@@ -208,6 +213,9 @@ fn main() {
                 }
                 if args.is_present("use_multi_thread") {
                     options.set_multi_thread_mode(true);
+                }
+                if args.is_present("check_exist") {
+                    options.set_check_exist(true);
                 }
                 options
             };

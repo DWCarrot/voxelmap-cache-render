@@ -1,9 +1,15 @@
+use std::path::Path;
 use std::path::PathBuf;
 use std::fs;
 use std::fs::File;
 use std::hash::Hash;
+use std::ops::Deref;
+use std::cmp::Ordering;
 
+use image;
+use image::Pixel;
 use image::DynamicImage;
+use image::ImageBuffer;
 use image::RgbaImage;
 use image::ImageFormat;
 use image::ImageResult;
@@ -25,6 +31,27 @@ impl Default for LoadableImage {
     }
 }
 
+fn load_png<P: AsRef<Path>>(path: P) -> ImageResult<DynamicImage> {
+    use std::io::BufReader;
+
+    let ifile = File::open(path).map_err(ImageError::from)?;
+    image::load(BufReader::new(ifile), ImageFormat::Png)
+}
+
+fn cmp_image_buffer<P, C1, C2>(img1: &ImageBuffer<P, C1>, img2: &ImageBuffer<P, C2>) -> bool 
+    where
+        P: Pixel + 'static + PartialEq,
+        C1: Deref<Target = [P::Subpixel]>,
+        C2: Deref<Target = [P::Subpixel]>
+{
+    for (p1, p2) in img1.pixels().zip(img2.pixels()) {
+        if p1 != p2 {
+            return false;
+        }
+    }
+    return true;
+}
+
 impl LoadableImage {
 
     pub fn new(path: PathBuf) -> Self {
@@ -40,19 +67,15 @@ impl LoadableImage {
     }
 
     pub fn ensure(&mut self) {
-        use std::io::BufReader;
+        
 
         if let Self::Unloaded(path) = self {
-            let img = if let Ok(ifile) = File::open(path.as_path()) {
-                if let Ok(image) = image::load(BufReader::new(ifile), ImageFormat::Png) {
-                    if let DynamicImage::ImageRgba8(image) = image {
-                        if image.width() != image.height() {
-                            Self::Empty
-                        } else {
-                            Self::Image(image)
-                        }
-                    } else {
+            let img = if let Ok(image) = load_png(path.as_path()) {
+                if let DynamicImage::ImageRgba8(image) = image {
+                    if image.width() != image.height() {
                         Self::Empty
+                    } else {
+                        Self::Image(image)
                     }
                 } else {
                     Self::Empty
@@ -64,13 +87,13 @@ impl LoadableImage {
         }
     }
 
-    pub fn save(&self, path: &PathBuf) -> ImageResult<bool> {
+    pub fn save(&self, path: &PathBuf, check: bool) -> ImageResult<bool> {
         use image::buffer::ConvertBuffer;
         use image::RgbImage;
 
-        if let Self::Image(image) = self {
+        if let Self::Image(img) = self {
             let mut full = true;
-            for pixel in image.pixels() {
+            for pixel in img.pixels() {
                 if pixel[3] < 255 {
                     full = false;
                     break;
@@ -80,10 +103,28 @@ impl LoadableImage {
                 fs::create_dir_all(parent).map_err(ImageError::from)?;
             }
             if full {
-                let image: RgbImage = image.convert();
-                image.save_with_format(path.as_path(), ImageFormat::Png)?;
+                let img: RgbImage = img.convert();
+                if check {
+                    if let Ok(old) = load_png(path.as_path()) {
+                        if let DynamicImage::ImageRgb8(old) = &old {
+                            if img.cmp(old) == Ordering::Equal {
+                                return Ok(false);
+                            }
+                        }
+                    }
+                }
+                img.save_with_format(path.as_path(), ImageFormat::Png)?;
             } else {
-                image.save_with_format(path.as_path(), ImageFormat::Png)?;
+                if check {
+                    if let Ok(old) = load_png(path.as_path()) {
+                        if let DynamicImage::ImageRgba8(old) = &old {
+                            if img.cmp(old) == Ordering::Equal {
+                                return Ok(false);
+                            }
+                        }
+                    }
+                }
+                img.save_with_format(path.as_path(), ImageFormat::Png)?;
             }
             Ok(true)
         } else {

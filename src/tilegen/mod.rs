@@ -16,13 +16,13 @@ use tile::TileId;
 use tile::TileQTreeIterator;
 use pathgen::PathGenerator;
 
-pub fn merge_branch(root: TileId, cache: &mut HashMap<TileId, LoadableImage>, path_gen: &dyn PathGenerator, filter: FilterType) {
+pub fn merge_branch(root: TileId, cache: &mut HashMap<TileId, LoadableImage>, path_gen: &dyn PathGenerator, filter: FilterType, check: bool) {
     for tile_id in TileQTreeIterator::new(root, 0) {
         if tile_id.is_origin() {
             if let Some(img) = cache.get_mut(&tile_id) {
                 img.ensure();
                 let p = path_gen.generate(tile_id.x, tile_id.z, tile_id.scale);
-                match img.save(&p) {
+                match img.save(&p, check) {
                     Err(e) => log::warn!("tile {} @{} fail: {}", tile_id, p.display(), e),
                     Ok(b) => if b {
                         log::info!("tile {} generated", tile_id);
@@ -36,7 +36,7 @@ pub fn merge_branch(root: TileId, cache: &mut HashMap<TileId, LoadableImage>, pa
             let tr = cache.remove(&tile_id.topright()).unwrap_or_default();
             let img = LoadableImage::merge(&tl, &tr, &bl, &br, filter);
             let p = path_gen.generate(tile_id.x, tile_id.z, tile_id.scale);
-            match img.save(&p) {
+            match img.save(&p, check) {
                 Err(e) => log::warn!("tile {} @{} fail: {}", tile_id, p.display(), e),
                 Ok(b) => if b {
                     log::info!("tile {} generated", tile_id);
@@ -54,6 +54,7 @@ pub struct TileGeneratorOptions {
     input_folder: PathBuf,
     output_folder: PathBuf,
     path_mode: PathMode,
+    check: bool,
 }
 
 impl TileGeneratorOptions {
@@ -64,7 +65,8 @@ impl TileGeneratorOptions {
             multi_thread_mode: false,
             input_folder,
             output_folder,
-            path_mode
+            path_mode,
+            check: false,
         }
     }
 
@@ -81,6 +83,10 @@ impl TileGeneratorOptions {
 
     pub fn set_multi_thread_mode(&mut self, mode: bool) {
         self.multi_thread_mode = mode;
+    }
+
+    pub fn set_check_exist(&mut self, check: bool) {
+        self.check = check;
     }
 
     // pub fn build_path_generator(&self, mode: &str) -> Option<Arc<dyn PathGenerator + Send + Sync>> {
@@ -302,9 +308,10 @@ impl TileGenerator {
             let path_gen = path_gen.clone();
             let root = TileId::new(path_gen.get_max_scale(), x, z);
             let filter = self.options.filter.clone();
+            let check = self.options.check;
             let tasks = move || {
                 let path_gen = path_gen.as_ref();
-                merge_branch(root, &mut cache_part, path_gen, filter)
+                merge_branch(root, &mut cache_part, path_gen, filter, check)
             };
             if self.options.multi_thread_mode {
                 let th = Builder::new().name(format!("work-({},{})", x, z)).spawn(tasks).unwrap();

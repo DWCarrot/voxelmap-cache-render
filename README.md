@@ -47,6 +47,7 @@ USAGE
 OPTIONS:
     --filter <filter>                filter used in scale, can be "nearest", "triangle", "gaussian", "catmullrom", "lanczos3"; default is "nearest"
     --use_multi_thread               whether to use multi-thread; if set, use fixed 4 threads
+    --check_exist         check if the same picture exist and then skip rewrite it
 ```
 
 ## python colormap generator

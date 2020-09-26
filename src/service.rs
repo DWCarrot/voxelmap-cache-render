@@ -32,7 +32,7 @@ use rustls::internal::pemfile;
 
 use super::render::RenderOptions;
 use super::render;
-use super::render::Tile;
+use super::render::tile::Tile;
 use super::color::BakedColorManager;
 use super::application;
 
@@ -197,7 +197,7 @@ async fn run_service(service: RenderService) -> io::Result<()> {
                         .route(web::post().to(render))
                 )
                 .service(
-                    Files::new("/static", webfileroot.as_path()).index_file("index.html")
+                    Files::new("/web", webfileroot.as_path()).index_file("index.html")
                 )
         })
         .workers(options.workers);
@@ -340,19 +340,19 @@ async fn render(s: web::Data<RenderService>, query: web::Query<RenderOptions>, m
 }
 
 
-mod test {
+// mod test {
 
-    use super::*;
+//     use super::*;
 
-    #[test]
-    fn test_server() {
-        std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
-        env_logger::init();
-        let options = RenderServerOptions::default();
-        RenderService::new(options).start();
-    }
+//     #[test]
+//     fn test_server() {
+//         std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
+//         env_logger::init();
+//         let options = RenderServerOptions::default();
+//         RenderService::new(options).start();
+//     }
 
 
-}
+// }
 
 

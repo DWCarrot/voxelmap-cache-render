@@ -3,6 +3,8 @@ import os
 import shutil
 import sys
 
+CUR = ''
+
 FILELIST = [
     "index.json",
     "colormap.png",
@@ -20,15 +22,15 @@ def current_dir(arg0):
 def main(args):
     tgtf = os.path.join(args[0], 'resource')
     try:
-        os.mkdir(tgtf)
+        os.makedirs (tgtf)
     except FileExistsError as e:
         pass
     for name in FILELIST:
-        src = os.path.abspath(name)
+        src = os.path.abspath(os.path.join(CUR, name))
         shutil.copy(src, tgtf)
+        print('copyed', src, 'to', tgtf)
     return 0
 
 if __name__ == "__main__":
-    cur = current_dir(sys.argv[0])
-    os.chdir(cur)
+    CUR = current_dir(sys.argv[0])
     main(sys.argv[1:])
