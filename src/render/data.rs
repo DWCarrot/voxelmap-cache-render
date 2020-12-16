@@ -1,75 +1,234 @@
+use std::marker::PhantomData;
+
 pub const TILESIZE: (u32, u32) = (256, 256);
 
-pub struct LayerView<'a> {
+pub trait View<'a> {
+    type EN;
+    type LN;
+
+    fn element(&self, x: u32, z: u32) -> Self::EN;
+
+    fn surface(&self, element: Self::EN) -> Self::LN;
+    
+    fn seafloor(&self, element: Self::EN) -> Self::LN;
+
+    fn transparent(&self, element: Self::EN) -> Self::LN;
+
+    fn foliage(&self, element: Self::EN) -> Self::LN;
+
+    fn biome(&self, element: Self::EN) -> u16;
+
+    fn height(&self, layer: Self::LN) -> u8;
+
+    fn blockstate_id(&self, layer: Self::LN) -> u16;
+
+    fn light(&self, layer: Self::LN) -> u8;
+
+    fn skylight(&self, layer: Self::LN) -> u8;
+
+    fn blocklight(&self, layer: Self::LN) -> u8;
+}
+
+
+#[derive(Clone, Copy)]
+pub struct LayerNode<'a> {
+    ptr: *const u8,
+    _life: PhantomData<&'a [u8]>
+}
+
+impl<'a> LayerNode<'a> {
+
+    fn new(element: ElementNode<'a>, offset: usize) -> LayerNode<'a> {
+        LayerNode {
+            ptr: element.ptr.wrapping_offset(offset as isize),
+            _life: element._life
+        }
+    }
+
+    unsafe fn get(&self, offset: usize) -> u8 {
+        *(self.ptr.wrapping_offset(offset as isize))
+    }
+}
+
+
+#[derive(Clone, Copy)]
+pub struct ElementNode<'a> {
+    ptr: *const u8,
+    _life: PhantomData<&'a [u8]>
+}
+
+impl<'a> ElementNode<'a> {
+
+    fn new(raw: &'a [u8], offset: usize) -> ElementNode<'a> {
+        ElementNode {
+            ptr: raw.as_ptr().wrapping_offset(offset as isize),
+            _life: PhantomData
+        }
+    }
+
+    unsafe fn get(&self, offset: usize) -> u8 {
+        *(self.ptr.wrapping_offset(offset as isize))
+    }
+}
+
+
+/**
+ * 
+ */
+
+pub struct V1TileView<'a> {
     raw: &'a[u8],
 }
 
-impl<'a> LayerView<'a> {
+impl<'a> View<'a> for V1TileView<'a> {
+    type LN = LayerNode<'a>;
+    type EN = ElementNode<'a>;
 
-    pub fn height(&self) -> u8 {
-        self.raw[0]
+    fn element(&self, x: u32, z: u32) -> Self::EN {
+        let offset = ((x + z * TILESIZE.0) * 18) as usize;
+        ElementNode::new(self.raw, offset)
     }
 
-    pub fn blockstate_id(&self) -> u16 {
-        ((self.raw[1] as u16) << 8) | (self.raw[2] as u16) 
+    fn surface(&self, element: Self::EN) -> Self::LN {
+        LayerNode::new(element, 0)
+    }
+    
+    fn seafloor(&self, element: Self::EN) -> Self::LN {
+        LayerNode::new(element, 4)
     }
 
-    pub fn light(&self) -> u8 {
-        self.raw[3]
+    fn transparent(&self, element: Self::EN) -> Self::LN {
+        LayerNode::new(element, 8)
     }
 
-    pub fn skylight(&self) -> u8 {
-        (self.raw[3] & 0xF0) >> 4
+    fn foliage(&self, element: Self::EN) -> Self::LN {
+        LayerNode::new(element, 12)
     }
 
-    pub fn blocklight(&self) -> u8 {
-        (self.raw[3] & 0x0F) >> 0
+    fn biome(&self, element: Self::EN) -> u16 {
+        unsafe {
+            ((element.get(16) as u16) << 8) | (element.get(17) as u16)
+        }
+    }
+
+    fn height(&self, layer: Self::LN) -> u8 {
+        unsafe {
+            layer.get(0)
+        }
+    }
+
+    fn blockstate_id(&self, layer: Self::LN) -> u16 {
+        unsafe {
+            ((layer.get(1) as u16) << 8) | (layer.get(2) as u16)
+        }      
+    }
+
+    fn light(&self, layer: Self::LN) -> u8 {
+        unsafe {
+            layer.get(3)
+        }
+    }
+
+    fn skylight(&self, layer: Self::LN) -> u8 {
+        (self.light(layer) & 0xF0) >> 4
+    }
+
+    fn blocklight(&self, layer: Self::LN) -> u8 {
+        self.light(layer) & 0x0F
     }
 }
 
-pub struct ElementView<'a> {
+impl<'a> V1TileView<'a> {
+
+    pub fn bind(raw: &'a [u8]) -> V1TileView<'a> {
+        let sz = (TILESIZE.0 * TILESIZE.1 * 18) as usize;
+        if raw.len() < sz {
+            panic!("index out of bounds: {} > {}", sz - 1, raw.len());
+        }
+        V1TileView {
+            raw
+        }
+    }
+}
+
+
+/**
+ * 
+ */
+
+pub struct V2TileView<'a> {
     raw: &'a[u8],
 }
 
-impl<'a> ElementView<'a> {
+impl<'a> View<'a> for V2TileView<'a> {
+    type LN = LayerNode<'a>;
+    type EN = ElementNode<'a>;
 
-    pub fn surface(&self) -> LayerView<'a> {
-        LayerView { raw: &self.raw[0..4] }
+    fn element(&self, x: u32, z: u32) -> Self::EN {
+        let offset = ((x + z * TILESIZE.0) * 1) as usize;
+        ElementNode::new(self.raw, offset)
     }
 
-    pub fn seafloor(&self) -> LayerView<'a> {
-        LayerView { raw: &self.raw[4..8] }
+    fn surface(&self, element: Self::EN) -> Self::LN {
+        LayerNode::new(element, 0 * (TILESIZE.1 * TILESIZE.0) as usize)
+    }
+    
+    fn seafloor(&self, element: Self::EN) -> Self::LN {
+        LayerNode::new(element, 4 * (TILESIZE.1 * TILESIZE.0) as usize)
     }
 
-    pub fn transparent(&self) -> LayerView<'a> {
-        LayerView { raw: &self.raw[8..12] }
+    fn transparent(&self, element: Self::EN) -> Self::LN {
+        LayerNode::new(element, 8 * (TILESIZE.1 * TILESIZE.0) as usize)
     }
 
-    pub fn foliage(&self) -> LayerView<'a> {
-        LayerView { raw: &self.raw[12..16] }
+    fn foliage(&self, element: Self::EN) -> Self::LN {
+        LayerNode::new(element, 12 * (TILESIZE.1 * TILESIZE.0) as usize)
     }
 
-    // pub fn _(&self) -> u8 {
-    //     self.raw[16]
-    // }
+    fn biome(&self, element: Self::EN) -> u16 {
+        let step = (TILESIZE.1 * TILESIZE.0) as usize;
+        unsafe {
+            ((element.get(16 * step) as u16) << 8) | (element.get(17 * step) as u16)
+        }
+    }
 
-    pub fn biome(&self) -> u8 {
-        self.raw[17]
+    fn height(&self, layer: Self::LN) -> u8 {
+        unsafe {
+            layer.get(0 * (TILESIZE.1 * TILESIZE.0) as usize)
+        }
+    }
+
+    fn blockstate_id(&self, layer: Self::LN) -> u16 {
+        let step = (TILESIZE.1 * TILESIZE.0) as usize;
+        unsafe {
+            ((layer.get(1 * step) as u16) << 8) | (layer.get(2 * step) as u16)
+        }      
+    }
+
+    fn light(&self, layer: Self::LN) -> u8 {
+        unsafe {
+            layer.get(3 * (TILESIZE.1 * TILESIZE.0) as usize)
+        }
+    }
+
+    fn skylight(&self, layer: Self::LN) -> u8 {
+        (self.light(layer) & 0xF0) >> 4
+    }
+
+    fn blocklight(&self, layer: Self::LN) -> u8 {
+        self.light(layer) & 0x0F
     }
 }
 
-pub struct TileView<'a> {
-    raw: &'a[u8],
-}
+impl<'a> V2TileView<'a> {
 
-impl<'a> TileView<'a> {
-
-    pub fn bind(raw: &'a[u8]) -> Self {
-        TileView { raw }
-    }
-
-    pub fn element(&self, x: u32, z: u32) -> ElementView<'a> {
-        let index = ((x + z * TILESIZE.0) * 18) as usize;
-        ElementView { raw: &self.raw[index .. index + 18] }
+    pub fn bind(raw: &'a [u8]) -> V2TileView<'a> {
+        let sz = (TILESIZE.0 * TILESIZE.1 * 18) as usize;
+        if raw.len() < sz {
+            panic!("index out of bounds: {} > {}", sz - 1, raw.len());
+        }
+        V2TileView {
+            raw
+        }
     }
 }

@@ -1,7 +1,7 @@
 pub mod data;
 pub mod key;
 pub mod tile;
-
+pub mod control;
 
 use image::Pixel;
 use image::Rgba;
@@ -11,6 +11,7 @@ use crate::color::biome::Biome;
 use crate::color::ColorManager;
 use crate::color::BakedColorManager;
 use data::TILESIZE;
+use data::View;
 use tile::Tile;
 
 
@@ -73,57 +74,58 @@ pub fn light_modify(c: &mut Rgba<u8>, light: u8) {
 
 pub fn render(tile: Tile, mgr: &BakedColorManager, options: &RenderOptions) -> RgbaImage {
     let mut panel = RgbaImage::new(TILESIZE.0, TILESIZE.1);
-    let tilev = tile.view();
+    let boxed_view = tile.view();
+    let view = boxed_view.as_ref();
     for x in 0 .. TILESIZE.0 {
         for z in 0 .. TILESIZE.1 {
 
-            let element = tilev.element(x, z);
-            let biome = Biome(element.biome() as usize);
+            let element = view.element(x, z);
+            let biome = Biome(view.biome(element) as usize);
             let mut surface = {
-                let layer = element.surface();
-                if layer.height() > 0 {
-                    let (c, props) = tile.get_color(layer.blockstate_id()); 
-                    let mut c = mgr.get_modified_color(c.clone(), &props.biome_color, layer.height() as i32, &biome, props.waterlogged);
-                    let light = std::cmp::max(layer.blocklight(), options.env_light);
+                let layer = view.surface(element);
+                if view.height(layer) > 0 {
+                    let (c, props) = tile.get_color(view.blockstate_id(layer)); 
+                    let mut c = mgr.get_modified_color(c.clone(), &props.biome_color, view.height(layer) as i32, &biome, props.waterlogged);
+                    let light = std::cmp::max(view.blocklight(layer), options.env_light);
                     light_modify(&mut c, light);
-                    (c, layer.height())
+                    (c, view.height(layer))
                 } else {
                     (Rgba::from([0, 0, 0, 0]), 0)
                 }
             };
             let color = if surface.1 > 0 {
                 let mut seafloor = {
-                    let layer = element.seafloor();
-                    if layer.height() > 0 {
-                        let (c, props) = tile.get_color(layer.blockstate_id()); 
-                        let mut c = mgr.get_modified_color(c.clone(), &props.biome_color, layer.height() as i32, &biome, props.waterlogged);
-                        let light = std::cmp::max(layer.blocklight(), options.env_light);
+                    let layer = view.seafloor(element);
+                    if view.height(layer) > 0 {
+                        let (c, props) = tile.get_color(view.blockstate_id(layer)); 
+                        let mut c = mgr.get_modified_color(c.clone(), &props.biome_color, view.height(layer) as i32, &biome, props.waterlogged);
+                        let light = std::cmp::max(view.blocklight(layer), options.env_light);
                         light_modify(&mut c, light);
-                        (c, layer.height())
+                        (c, view.height(layer))
                     } else {
                         (Rgba::from([0, 0, 0, 0]), 0)
                     }
                 };
                 let mut transparent = {
-                    let layer = element.transparent();
-                    if layer.height() > 0 {
-                        let (c, props) = tile.get_color(layer.blockstate_id()); 
-                        let mut c = mgr.get_modified_color(c.clone(), &props.biome_color, layer.height() as i32, &biome, props.waterlogged);
-                        let light = std::cmp::max(layer.blocklight(), options.env_light);
+                    let layer = view.transparent(element);
+                    if view.height(layer) > 0 {
+                        let (c, props) = tile.get_color(view.blockstate_id(layer)); 
+                        let mut c = mgr.get_modified_color(c.clone(), &props.biome_color, view.height(layer) as i32, &biome, props.waterlogged);
+                        let light = std::cmp::max(view.blocklight(layer), options.env_light);
                         light_modify(&mut c, light);
-                        (c, layer.height())
+                        (c, view.height(layer))
                     } else {
                         (Rgba::from([0, 0, 0, 0]), 0)
                     }
                 };
                 let mut foliage = {
-                    let layer = element.foliage();
-                    if layer.height() > 0 {
-                        let (c, props) = tile.get_color(layer.blockstate_id()); 
-                        let mut c = mgr.get_modified_color(c.clone(), &props.biome_color, layer.height() as i32, &biome, props.waterlogged);
-                        let light = std::cmp::max(layer.blocklight(), options.env_light);
+                    let layer = view.foliage(element);
+                    if view.height(layer) > 0 {
+                        let (c, props) = tile.get_color(view.blockstate_id(layer)); 
+                        let mut c = mgr.get_modified_color(c.clone(), &props.biome_color, view.height(layer) as i32, &biome, props.waterlogged);
+                        let light = std::cmp::max(view.blocklight(layer), options.env_light);
                         light_modify(&mut c, light);
-                        (c, layer.height())
+                        (c, view.height(layer))
                     } else {
                         (Rgba::from([0, 0, 0, 0]), 0)
                     }
