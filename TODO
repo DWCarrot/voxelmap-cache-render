@@ -1,5 +1,0 @@
-[x] 1. path mode:   layer+:<originalZoom>  layer+:<originalZoom>,<maxZoom>  layer-:<originalZoom>  layer-:<originalZoom>,<minZoom>
-
-[x] 2. service --tls:  "cert:/path/to/cert.pem,key:/path/to/key.pem"
-
-[ ]
