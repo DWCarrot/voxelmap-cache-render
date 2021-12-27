@@ -7,7 +7,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::thread;
 use std::thread::Builder;
+
 
 use image::imageops::FilterType;
 
@@ -23,9 +25,13 @@ pub fn merge_branch(root: TileId, cache: &mut HashMap<TileId, LoadableImage>, pa
                 img.ensure();
                 let p = path_gen.generate(tile_id.x, tile_id.z, tile_id.scale);
                 match img.save(&p, check) {
-                    Err(e) => log::warn!("tile {} @{} fail: {}", tile_id, p.display(), e),
-                    Ok(b) => if b {
-                        log::info!("tile {} generated", tile_id);
+                    Err(e) => {
+                        log::warn!("[{}] tile {} @{} fail: {}", thread::current().name().unwrap_or_default(), tile_id, p.display(), e);
+                    },
+                    Ok(b) => {
+                        if b {
+                           log::info!("[{}] tile {} generated", thread::current().name().unwrap_or_default(), tile_id);
+                        }
                     }
                 }
             }
@@ -37,9 +43,13 @@ pub fn merge_branch(root: TileId, cache: &mut HashMap<TileId, LoadableImage>, pa
             let img = LoadableImage::merge(&tl, &tr, &bl, &br, filter);
             let p = path_gen.generate(tile_id.x, tile_id.z, tile_id.scale);
             match img.save(&p, check) {
-                Err(e) => log::warn!("tile {} @{} fail: {}", tile_id, p.display(), e),
-                Ok(b) => if b {
-                    log::info!("tile {} generated", tile_id);
+                Err(e) => {
+                    log::warn!("[{}] tile {} @{} fail: {}", thread::current().name().unwrap_or_default(), tile_id, p.display(), e);
+                },
+                Ok(b) => {
+                    if b {
+                       log::info!("[{}] tile {} generated", thread::current().name().unwrap_or_default(), tile_id);
+                    }
                 }
             }
             cache.insert(tile_id, img);  
@@ -118,10 +128,10 @@ impl Bound {
     
     pub fn new() -> Self {
         Bound {
-            xmin: std::i32::MAX,
-            xmax: std::i32::MIN,
-            zmin: std::i32::MAX,
-            zmax: std::i32::MIN,
+            xmin: 0,
+            xmax: -1,
+            zmin: 0,
+            zmax: -1,
         }
     }
 
@@ -154,7 +164,7 @@ pub enum PathMode {
         max_zoom: Option<i32>,
     },
     Tree {
-        reserved: bool,
+        
     }
 }
 
@@ -250,7 +260,7 @@ impl PathMode {
                     Arc::new(Layer::new(min_zoom, 1, max_zoom, PathBuf::from(root)))
                 }
             },
-            Self::Tree { reserved } => {
+            Self::Tree { } => {
                 unimplemented!()
             }
         }
@@ -305,19 +315,21 @@ impl TileGenerator {
         let path_gen = self.options.path_mode.extract(&bound, self.options.output_folder.as_path());
         let mut ths = Vec::new();
         for (x, z, mut cache_part) in parts.into_iter() {
-            let path_gen = path_gen.clone();
-            let root = TileId::new(path_gen.get_max_scale(), x, z);
-            let filter = self.options.filter.clone();
-            let check = self.options.check;
-            let tasks = move || {
-                let path_gen = path_gen.as_ref();
-                merge_branch(root, &mut cache_part, path_gen, filter, check)
-            };
-            if self.options.multi_thread_mode {
-                let th = Builder::new().name(format!("work-({},{})", x, z)).spawn(tasks).unwrap();
-                ths.push(th);
-            } else {
-                tasks();
+            if cache_part.len() > 0 {
+                let path_gen = path_gen.clone();
+                let root = TileId::new(path_gen.get_max_scale(), x, z);
+                let filter = self.options.filter.clone();
+                let check = self.options.check;
+                let tasks = move || {
+                    let path_gen = path_gen.as_ref();
+                    merge_branch(root, &mut cache_part, path_gen, filter, check)
+                };
+                if self.options.multi_thread_mode {
+                    let th = Builder::new().name(format!("work-({},{})", x, z)).spawn(tasks).unwrap();
+                    ths.push(th);
+                } else {
+                    tasks();
+                }
             }
         }
         for th in ths {
@@ -333,7 +345,6 @@ mod test {
     fn test_path_mode_parse() {
         use super::Bound;
         use super::PathMode;
-        use super::pathgen::PathGenerator;
         use std::str::FromStr;
         use std::path::PathBuf;
 

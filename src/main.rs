@@ -222,6 +222,7 @@ fn main() {
             let app = tilegen::TileGenerator::new(options);
             let time = Instant::now();
             let list = app.list_files();
+            log::info!("> source: {} tiles", list.len());
             app.generate_tile(list);
             let time = Instant::now() - time;
             log::info!("> used {}ms", time.as_millis());

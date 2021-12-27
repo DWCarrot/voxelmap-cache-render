@@ -125,9 +125,9 @@ impl Application {
                 .spawn(move|| {
                 for task in &slice {
                     if let Err(e) = that.render_one(task.src.as_path(), task.tgt.as_path(), &task.tile_id) {
-                        log::warn!("tile{:?} error: {}", task.tile_id, e);
+                        log::warn!("[{}] tile{:?} error: {}", thread::current().name().unwrap_or_default(), task.tile_id, e);
                     } else {
-                        log::info!("tile{:?} finished", task.tile_id);
+                        log::info!("[{}] tile{:?} finished", thread::current().name().unwrap_or_default(), task.tile_id);
                     }
                 }
             }).unwrap();

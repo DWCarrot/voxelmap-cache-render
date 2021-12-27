@@ -2,6 +2,7 @@ use std::io::Read;
 use std::io::Seek;
 use std::convert::TryFrom;
 
+use log;
 use zip::ZipArchive;
 use image::Rgba;
 
@@ -55,7 +56,7 @@ impl Tile {
                     key.push((model, props));
                 },
                 Err(e) => {
-                    eprintln!("parse error: `{}` @{}", line, e); //TODO: log
+                    log::warn!("parse error: `{}` @{}", line, e); //TODO: log
                     key.push((Rgba::from([0,0,0,0]), BlockProps::new()))
                 }
             }
@@ -67,7 +68,7 @@ impl Tile {
             if let Ok(n) = ifile.read_to_string(&mut s) {
                 for line in s.lines() {
                     if let Err(e) = control.modify_by(line) {
-                        eprintln!("parse error: `{}` @{}", line, e); //TODO: log
+                        log::warn!("parse error: `{}` @{}", line, e);
                         break;
                     }
                 }
@@ -87,7 +88,7 @@ impl Tile {
             1 => Box::new(V1TileView::bind(self.data.as_slice())),
             2 => Box::new(V2TileView::bind(self.data.as_slice())),
             _ => {
-                eprintln!("unexpected control{{version:{}}} , use `1`", self.control.version);
+                log::warn!("unexpected control{{version:{}}} , use `1`", self.control.version);
                 Box::new(V1TileView::bind(self.data.as_slice()))
             }
         }   
