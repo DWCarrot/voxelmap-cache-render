@@ -3,6 +3,16 @@ Offline renderer for Minecraft voxelmap cache, with python (generate colormap) a
 
 [中文使用方法简介](https://bbs.craft.moe/d/1921-voxelmapmod)
 
+----
+
+## Archived 
+
+Since Minecraft 1.18, the changes of world height makes voxelmap-cache format and voxelmap itself unstable. 
+
+Decide not to maintain.
+
+----
+
 ## rust renderer
 ### file struct
 ```bash
